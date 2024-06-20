@@ -1,0 +1,63 @@
+stages:
+  - build
+  - style
+  - test
+  - deploy
+  - notify
+
+build-job:
+  stage: build
+  script:
+    - cd src/cat
+    - make s21_cat
+    - cd ../grep
+    - make s21_grep
+    - cd ..
+    - chmod +x telegram.sh
+    - bash telegram.sh Build_status ✅
+  artifacts:
+    paths:
+      - src/cat/s21_cat
+      - src/grep/s21_grep
+    expire_in: 30 days
+
+
+style-job:
+  stage: style
+  script:
+    - cp materials/linters/.clang-format src/
+    - clang-format -n -Werror src/*/*.c &> clang_output.txt || bash clang_output.sh
+    - bash src/telegram.sh Code_style_status ✅
+
+test-job:
+  stage: test
+  script:
+    - cd src/cat
+    - bash s21_cat_test_valgrind.sh
+    - cd ../grep
+    - bash s21_grep_test_valgrind.sh
+    - cd ..
+    - bash telegram.sh Functional_status ✅
+
+deploy-job:
+  stage: deploy
+  allow_failure: false
+  when: manual
+  script:
+    - echo "Start deploy job"
+    - chmod +x copy.sh
+    - bash copy.sh
+    - bash src/telegram.sh Deploy_status ✅
+   
+notify_fail-job:
+  stage: notify
+  script:
+    - chmod +x src/telegram_bot_conf.sh
+    - bash src/telegram.sh Job_Error ❌
+  when: on_failure
+  
+notify_ok-job:
+  stage: notify
+  script:
+    - bash src/telegram.sh Success ✅
+  when: on_success
